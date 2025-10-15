@@ -15,12 +15,31 @@ const Login = () => {
   const { login, user } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
+  const [apiHealth, setApiHealth] = useState(null);
+  const apiBase = (process.env.REACT_APP_API_URL || '').replace(/\/api\/?$/i, '') || '/api';
 
   useEffect(() => {
     if (user) {
       navigate('/');
     }
   }, [user, navigate]);
+
+  useEffect(() => {
+    // quick health check for deployed environments
+    const check = async () => {
+      try {
+        const res = await fetch(`${apiBase}/health`);
+        if (res.ok) {
+          setApiHealth('ok');
+        } else {
+          setApiHealth('bad');
+        }
+      } catch (e) {
+        setApiHealth('down');
+      }
+    };
+    check();
+  }, [apiBase]);
 
   const handleChange = (e) => {
     setFormData({
@@ -159,38 +178,44 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Demo Credentials */}
-          <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-2xl border border-blue-200 dark:border-gray-600 animate-slide-up">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-              🎯 Quick Access Demo Accounts
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
-                <div>
-                  <span className="font-semibold text-gray-900 dark:text-white">👑 Admin</span>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Full system access</p>
-                </div>
-                <code className="text-xs bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">admin@ironforge.com</code>
+          {/* Demo Credentials - development only */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-2xl border border-blue-200 dark:border-gray-600 animate-slide-up">
+              {/* Debug banner */}
+              <div className="mb-4 p-3 rounded bg-gray-100 dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-200">
+                API: <span className="font-mono">{apiBase}</span> — Health: <span className="font-semibold">{apiHealth || 'checking...'}</span>
               </div>
-              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
-                <div>
-                  <span className="font-semibold text-gray-900 dark:text-white">👨‍💼 Employee</span>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Member management</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                🎯 Quick Access Demo Accounts
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
+                  <div>
+                    <span className="font-semibold text-gray-900 dark:text-white">👑 Admin</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Full system access</p>
+                  </div>
+                  <code className="text-xs bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">admin@ironforge.com</code>
                 </div>
-                <code className="text-xs bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">employee@ironforge.com</code>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
-                <div>
-                  <span className="font-semibold text-gray-900 dark:text-white">🏋️ Member</span>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Personal dashboard</p>
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
+                  <div>
+                    <span className="font-semibold text-gray-900 dark:text-white">👨‍💼 Employee</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Member management</p>
+                  </div>
+                  <code className="text-xs bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">employee@ironforge.com</code>
                 </div>
-                <code className="text-xs bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">member@ironforge.com</code>
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
+                  <div>
+                    <span className="font-semibold text-gray-900 dark:text-white">🏋️ Member</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Personal dashboard</p>
+                  </div>
+                  <code className="text-xs bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">member@ironforge.com</code>
+                </div>
+                <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-3">
+                  Password for all accounts: <span className="font-mono font-semibold">password123</span>
+                </p>
               </div>
-              <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-3">
-                Password for all accounts: <span className="font-mono font-semibold">password123</span>
-              </p>
             </div>
-          </div>
+          )}
         </form>
       </div>
     </div>

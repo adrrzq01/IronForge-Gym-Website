@@ -5,12 +5,12 @@ const getAdminDashboard = (req, res) => {
     const queries = [
         // Total members
         'SELECT COUNT(*) as total FROM members WHERE is_active = 1',
-        // Active members (paid)
-        'SELECT COUNT(*) as active FROM members WHERE is_active = 1 AND payment_status = "paid"',
-        // Pending payments
-        'SELECT COUNT(*) as pending FROM members WHERE is_active = 1 AND payment_status = "pending"',
-        // Overdue payments
-        'SELECT COUNT(*) as overdue FROM members WHERE is_active = 1 AND payment_status = "overdue"',
+    // Active members (paid)
+    "SELECT COUNT(*) as active FROM members WHERE is_active = 1 AND payment_status = 'paid'",
+    // Pending payments
+    "SELECT COUNT(*) as pending FROM members WHERE is_active = 1 AND payment_status = 'pending'",
+    // Overdue payments
+    "SELECT COUNT(*) as overdue FROM members WHERE is_active = 1 AND payment_status = 'overdue'",
         // Total employees
         'SELECT COUNT(*) as employees FROM employees WHERE is_active = 1',
         // Today's check-ins
@@ -24,10 +24,12 @@ const getAdminDashboard = (req, res) => {
          WHERE is_active = 1 AND DATE(created_at) >= DATE('now', '-7 days')`
     ];
 
+    // temporary file logging removed for production readiness; keep console errors with context
+
     Promise.all(queries.map(query => 
         new Promise((resolve, reject) => {
             db.get(query, (err, result) => {
-                if (err) reject(err);
+                if (err) reject({ err, query });
                 else resolve(result);
             });
         })
@@ -57,7 +59,11 @@ const getAdminDashboard = (req, res) => {
             }
         });
     })
-    .catch(err => {
+    .catch(e => {
+        // e may be {err, query} or an Error
+        const err = e && e.err ? e.err : e;
+        const query = e && e.query ? e.query : undefined;
+        console.error('Error in getAdminDashboard:', err && err.stack ? err.stack : err, query ? `Query: ${query}` : '');
         res.status(500).json({ message: 'Database error' });
     });
 };
@@ -72,7 +78,8 @@ const getEmployeeDashboard = (req, res) => {
         [userId],
         (err, employee) => {
             if (err) {
-                return res.status(500).json({ message: 'Database error' });
+                        console.error('Error fetching employee:', err);
+                        return res.status(500).json({ message: 'Database error' });
             }
 
             if (!employee) {
@@ -91,6 +98,7 @@ const getEmployeeDashboard = (req, res) => {
 
             db.get(memberQuery, memberParams, (err, memberResult) => {
                 if (err) {
+                    console.error('Error fetching memberResult for employee dashboard:', err);
                     return res.status(500).json({ message: 'Database error' });
                 }
 
@@ -100,7 +108,8 @@ const getEmployeeDashboard = (req, res) => {
                      WHERE DATE(check_in_time) = DATE('now')`,
                     (err, checkinResult) => {
                         if (err) {
-                            return res.status(500).json({ message: 'Database error' });
+                           console.error('Error fetching checkinResult for employee dashboard:', err);
+                           return res.status(500).json({ message: 'Database error' });
                         }
 
                         res.json({
@@ -136,6 +145,7 @@ const getMemberDashboard = (req, res) => {
         [userId],
         (err, member) => {
             if (err) {
+                console.error('Error fetching member for member dashboard:', err);
                 return res.status(500).json({ message: 'Database error' });
             }
 
@@ -154,6 +164,7 @@ const getMemberDashboard = (req, res) => {
                 [member.id],
                 (err, attendanceResult) => {
                     if (err) {
+                        console.error('Error fetching attendance for member dashboard:', err);
                         return res.status(500).json({ message: 'Database error' });
                     }
 
@@ -166,7 +177,8 @@ const getMemberDashboard = (req, res) => {
                         [member.id],
                         (err, payments) => {
                             if (err) {
-                                return res.status(500).json({ message: 'Database error' });
+                              console.error('Error fetching payments for member dashboard:', err);
+                              return res.status(500).json({ message: 'Database error' });
                             }
 
                             // Get assigned services
@@ -179,7 +191,8 @@ const getMemberDashboard = (req, res) => {
                                 [member.id],
                                 (err, services) => {
                                     if (err) {
-                                        return res.status(500).json({ message: 'Database error' });
+                                    console.error('Error fetching services for member dashboard:', err);
+                                    return res.status(500).json({ message: 'Database error' });
                                     }
 
                                     res.json({
@@ -230,6 +243,10 @@ const getDashboardCharts = (req, res) => {
             break;
     }
 
+    // Safety: ensure groupBy and dateFilter have defaults
+    if (!groupBy) groupBy = "DATE(check_in_time)";
+    if (!dateFilter) dateFilter = "DATE(check_in_time) >= DATE('now', '-12 months')";
+
     // Get attendance data
     db.all(
         `SELECT 
@@ -242,6 +259,7 @@ const getDashboardCharts = (req, res) => {
          ORDER BY period DESC`,
         (err, attendanceData) => {
             if (err) {
+                console.error('Error fetching attendanceData for charts:', err);
                 return res.status(500).json({ message: 'Database error' });
             }
 
@@ -257,6 +275,7 @@ const getDashboardCharts = (req, res) => {
                  ORDER BY period DESC`,
                 (err, paymentData) => {
                     if (err) {
+                        console.error('Error fetching paymentData for charts:', err);
                         return res.status(500).json({ message: 'Database error' });
                     }
 

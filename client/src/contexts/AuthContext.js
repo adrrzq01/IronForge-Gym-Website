@@ -18,6 +18,17 @@ export const AuthProvider = ({ children }) => {
 
   // Configure axios defaults
   useEffect(() => {
+  // Set baseURL from environment (useful in production when API is on a different host)
+  // Allow REACT_APP_API_URL to be set with or without a trailing "/api".
+  const rawApi = process.env.REACT_APP_API_URL || '';
+  const normalized = rawApi.replace(/\/api\/?$/i, '');
+  // In development use empty baseURL so CRA's proxy (client/package.json) still works.
+  const apiBase = process.env.NODE_ENV === 'development' ? '' : (normalized || '/api');
+  axios.defaults.baseURL = apiBase;
+  // Log the effective base URL (helps debug 404s in production)
+  // eslint-disable-next-line no-console
+  console.log('API base URL:', axios.defaults.baseURL);
+
     const token = localStorage.getItem('token');
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -97,7 +108,7 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (profileData) => {
     try {
-      const response = await axios.put('/api/auth/profile', profileData);
+      await axios.put('/api/auth/profile', profileData);
       setUser(prev => ({ ...prev, ...profileData }));
       toast.success('Profile updated successfully');
       return { success: true };

@@ -345,3 +345,10 @@ The application is **production-ready** with:
 - 🎯 **User-Centric**: Intuitive and engaging user experience
 
 The application is ready for **immediate deployment** and can handle real-world gym management operations with ease!
+
+---
+
+## Ready for redeploy (2025-10-15)
+
+- Fixed SQLite dashboard queries that used double quotes for string literals (now using single quotes). Verified health, login and dashboard endpoints locally. Removed temporary file-based debugging logs and cleaned up the server for production readiness.
+- Added a small smoke test script under `server/scripts/smokeTest.js` and a `server` npm script `smoke` for quick pre-deploy verification.
