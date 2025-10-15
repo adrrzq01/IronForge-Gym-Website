@@ -52,17 +52,20 @@ export const AuthProvider = ({ children }) => {
       });
 
       const { token, user } = response.data;
-      
-      localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
-      
-      toast.success('Login successful!');
-      return { success: true };
+
+      if (token) {
+        localStorage.setItem('token', token);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setUser(user);
+        toast.success('Login successful!');
+        return true;
+      }
+      // If no token returned treat as failure
+      return false;
     } catch (error) {
       const message = error.response?.data?.message || 'Login failed';
       toast.error(message);
-      return { success: false, error: message };
+      return false;
     }
   };
 

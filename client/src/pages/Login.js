@@ -34,11 +34,13 @@ const Login = () => {
     setLoading(true);
 
     const result = await login(formData.email, formData.password);
-    
-    if (result.success) {
+
+    if (result === true) {
       navigate('/');
+    } else {
+      // Keep on the login page and show an inline error or toast is already shown by context
     }
-    
+
     setLoading(false);
   };
 
