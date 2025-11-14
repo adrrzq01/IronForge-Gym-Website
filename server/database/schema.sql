@@ -6,8 +6,12 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'employee', 'member')),
+    role VARCHAR(10) NOT NULL CHECK (role IN ('admin', 'employee', 'member')) DEFAULT 'member',
+    two_factor_secret TEXT,
+    two_factor_enabled BOOLEAN DEFAULT 0,
     is_active BOOLEAN DEFAULT 1,
+    password_reset_token TEXT,
+    password_reset_expires DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -148,10 +152,6 @@ CREATE TABLE IF NOT EXISTS notifications (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- Insert default admin user
-INSERT OR IGNORE INTO users (username, email, password, role) VALUES 
-('admin', 'admin@ironforge.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin');
-
 -- Insert default plans
 -- Default sample plans (customize prices/descriptions as needed)
 INSERT OR IGNORE INTO plans (name, duration_months, price, description, services_included) VALUES 
@@ -165,6 +165,32 @@ INSERT OR IGNORE INTO services (name, description, price, duration_minutes) VALU
 ('Diet Consultation', 'Nutritional guidance and meal planning', 350.00, 45),
 ('Yoga Classes', 'Group yoga sessions', 200.00, 60),
 ('Zumba Classes', 'High-energy dance fitness class', 250.00, 45),
-('Martial Arts Classes', 'Group martial arts training (karate/kickboxing/taekwondo style sessions)', 300.00, 60),
-('Swimming Lessons', 'Learn to swim or improve technique', 400.00, 60);
+('Martial Arts Classes', 'Group martial arts training (karate/kickboxing/taekwondo style sessions)', 300.00, 60);
+
+-- Class Schedules table
+CREATE TABLE IF NOT EXISTS class_schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_id INTEGER NOT NULL,
+    trainer_id INTEGER,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NOT NULL,
+    capacity INTEGER NOT NULL,
+    booked_count INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (service_id) REFERENCES services(id),
+    FOREIGN KEY (trainer_id) REFERENCES employees(id)
+);
+
+-- Bookings table (for member class/service reservations)
+CREATE TABLE IF NOT EXISTS bookings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_id INTEGER NOT NULL,
+    schedule_id INTEGER NOT NULL,
+    booking_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'cancelled')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (member_id) REFERENCES members(id),
+    FOREIGN KEY (schedule_id) REFERENCES class_schedules(id),
+    UNIQUE(member_id, schedule_id)
+);
 

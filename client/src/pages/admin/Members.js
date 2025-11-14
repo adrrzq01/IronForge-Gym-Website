@@ -2,6 +2,7 @@ import React from 'react';
 import Sidebar from '../../components/layout/Sidebar';
 import Header from '../../components/layout/Header';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import DataTable from '../../components/common/DataTable';
 import api from '../../lib/api';
 
@@ -35,7 +36,7 @@ function MembersTable() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
 
-  const fetchData = async (p = page) => {
+  const fetchData = React.useCallback(async (p = page) => {
     setLoading(true);
     try {
       const { data } = await api.get('/members', {
@@ -46,8 +47,8 @@ function MembersTable() {
         ...m,
         actions: (
           <div className="space-x-2">
-            <a href={`/members/${m.id}`} className="btn btn-secondary btn-sm">View</a>
-            <a href={`/members/${m.id}/edit`} className="btn btn-secondary btn-sm">Edit</a>
+            <Link to={`/members/${m.id}`} className="btn btn-secondary btn-sm">View</Link>
+            <Link to={`/members/${m.id}/edit`} className="btn btn-secondary btn-sm">Edit</Link>
           </div>
         )
       })));
@@ -61,9 +62,9 @@ function MembersTable() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, search, status]);
 
-  useEffect(() => { fetchData(1); /* eslint-disable-next-line */ }, [search, status]);
+  useEffect(() => { fetchData(1); }, [search, status, fetchData]);
 
   const columns = [
     { key: 'name', title: 'Name', dataIndex: 'name' },
@@ -86,7 +87,7 @@ function MembersTable() {
             <option value="inactive">Inactive</option>
           </select>
         </div>
-        <a href="/members/new" className="btn btn-primary btn-md">Add Member</a>
+  <Link to="/members/new" className="btn btn-primary btn-md">Add Member</Link>
       </div>
 
       <DataTable

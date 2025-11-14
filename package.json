@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd server && npm run dev",
-    "client": "cd client && npm start",
+    "client": "cd client && npm install && cross-env-shell npm start",
     "build": "cd client && npm run build",
     "start": "cd server && npm start"
   },
@@ -14,7 +14,8 @@
   "author": "IronForge Gym",
   "license": "MIT",
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3"
   }
 }
 

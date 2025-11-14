@@ -27,6 +27,7 @@ const Sidebar = () => {
     { name: 'Payments', href: '/payments', icon: CreditCard },
     { name: 'Attendance', href: '/attendance', icon: Calendar },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
+    { name: 'Scheduling', href: '/scheduling', icon: Calendar },
   ];
 
   const employeeNavItems = [
@@ -37,6 +38,8 @@ const Sidebar = () => {
 
   const memberNavItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Book Classes', href: '/scheduling', icon: Calendar },
+    { name: 'Plans', href: '/plans', icon: Package },
   ];
 
   const getNavItems = () => {

@@ -25,6 +25,7 @@ const serviceValidation = [
 
 // Routes
 router.get('/', authenticateToken, getAllServices);
+router.get('/all', authenticateToken, authorizeRoles('admin', 'employee'), getAllServices); // Added for clarity for UI fetching
 router.get('/stats', authenticateToken, authorizeRoles('admin'), getServiceStats);
 router.get('/:id', authenticateToken, getServiceById);
 router.post('/', authenticateToken, authorizeRoles('admin'), serviceValidation, createService);

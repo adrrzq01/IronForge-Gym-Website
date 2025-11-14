@@ -17,7 +17,7 @@ const Services = () => {
   const loadServices = async () => {
     try {
       const { data } = await axios.get('/api/services');
-      setServices(data.services || data || []);
+      setServices(data.services || []);
     } catch (e) {
       console.error(e);
       toast.error('Failed to load services');

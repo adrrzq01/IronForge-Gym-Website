@@ -6,7 +6,13 @@ const {
     login,
     getProfile,
     updateProfile,
-    changePassword
+    changePassword,
+    forgotPassword,
+    resetPassword,
+    setup2FA,
+    verify2FA,
+    disable2FA,
+    login2FA
 } = require('../controllers/authController');
 
 const router = express.Router();
@@ -35,5 +41,15 @@ router.post('/login', loginValidation, login);
 router.get('/profile', authenticateToken, getProfile);
 router.put('/profile', authenticateToken, updateProfile);
 router.put('/change-password', authenticateToken, changePasswordValidation, changePassword);
+
+// Password Reset Routes
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password/:token', resetPassword);
+
+// 2FA Routes
+router.post('/2fa/setup', authenticateToken, setup2FA);
+router.post('/2fa/verify', authenticateToken, verify2FA);
+router.post('/2fa/disable', authenticateToken, disable2FA);
+router.post('/login/2fa', login2FA);
 
 module.exports = router;

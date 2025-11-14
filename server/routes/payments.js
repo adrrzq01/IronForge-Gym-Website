@@ -10,7 +10,9 @@ const {
     getMemberPayments,
     getPaymentStats,
     getOverduePayments,
-    processPayment
+    processPayment,
+    createRazorpayOrder,
+    verifyRazorpayPayment
 } = require('../controllers/paymentController');
 
 const router = express.Router();
@@ -31,8 +33,18 @@ router.get('/overdue', authenticateToken, authorizeRoles('admin', 'employee'), g
 router.get('/:id', authenticateToken, authorizeRoles('admin', 'employee'), getPaymentById);
 router.post('/', authenticateToken, authorizeRoles('admin', 'employee'), paymentValidation, createPayment);
 router.post('/process', authenticateToken, processPayment);
+// Webhook endpoint for payment gateway (no auth; ensure to verify signature in production)
+router.post('/webhook', (req, res) => {
+    // Placeholder: in production verify signature and update payment status accordingly
+    console.log('Received payment webhook', req.body && Object.keys(req.body).length);
+    res.json({ message: 'Webhook received' });
+});
 router.put('/:id', authenticateToken, authorizeRoles('admin'), paymentValidation, updatePayment);
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), deletePayment);
 router.get('/member/:memberId', authenticateToken, getMemberPayments);
+
+// Razorpay Payment Routes
+router.post('/create-order', authenticateToken, authorizeRoles('member'), createRazorpayOrder);
+router.post('/verify-payment', authenticateToken, authorizeRoles('member'), verifyRazorpayPayment);
 
 module.exports = router;

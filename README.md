@@ -1,242 +1,167 @@
-# IronForge Gym - Membership & Employee Management System
+# IronForge Gym Management System
 
-A comprehensive full-stack web application for managing gym memberships, employees, and operations. Built with React, Node.js, Express, and SQLite.
+A comprehensive, full-stack web application designed to manage all aspects of a gym's operations. It features role-based access control for admins, employees, and members, a secure payment system, and a complete class scheduling and booking module.
 
-## 🚀 Features
+---
 
-### 🔐 Authentication & Roles
-- **Admin Login**: Full system access and management
-- **Employee Login**: Member data access and attendance tracking
-- **Member Login**: Personal profile and attendance viewing
-- **Role-based dashboards** with appropriate permissions
+## Key Features
 
-### 👥 Member Management
-- **Complete member registration** with photo capture
-- **Member details**: Name, age, gender, email, phone, address
-- **Emergency contact** information
-- **Plan assignment** (Monthly, Quarterly, Yearly)
-- **Payment status** tracking and due dates
-- **Photo storage** in database
-- **Edit, update, or remove** members
-- **Attendance tracking** with daily check-in/out
+The application's functionality is tailored to three distinct roles: Admin, Member, and Employee.
 
-### 👨‍🏫 Employee Management
-- **Add/edit/remove employees** (trainers, receptionists, etc.)
-- **Trainer assignment** to members
-- **Salary and shift** tracking
-- **Performance monitoring**
+### Admin
+- **Comprehensive Dashboard:** Provides an at-a-glance overview of the entire gym's operations. It features real-time statistical cards for Total Members, Active Members, Monthly Revenue, and Pending Payments. Interactive charts visualize historical attendance and revenue trends, allowing admins to track growth and performance over time.
 
-### 📅 Plan & Services Management
-- **Membership plans** with pricing and duration
-- **Extra services**: Personal training, diet consultation, yoga, Zumba, etc.
-- **Service assignment** to members
-- **Plan statistics** and analytics
+- **Advanced Member Management:** A complete interface to manage the entire member lifecycle. Admins can add new members with detailed profiles (including live photo capture via webcam), edit existing information, view a member's complete payment and attendance history in a dedicated detail view, and manage their active status within the gym.
 
-### 📊 Dashboards & Reports
-- **Admin Dashboard**: Total members, active plans, pending payments, employee count
-- **Employee Dashboard**: Assigned members, today's check-ins, tasks
-- **Member Dashboard**: Profile, plan expiry, attendance record, payment history
-- **Export reports** (CSV/PDF for attendance, payments, member list)
+- **Full Employee Management:** Enables full CRUD (Create, Read, Update, Delete) operations for staff. Admins can manage employee profiles, including their role, shift times, and salary details, ensuring all staff information is up-to-date.
 
-### 💳 Payment Integration
-- **Stripe/Razorpay** integration for online payments
-- **Offline payment** tracking (cash, UPI, card)
-- **Receipt generation**
-- **Payment history** and analytics
+- **Dynamic Plan & Service Management:** Allows admins to dynamically define the gym's offerings. They can create, update, and delete various membership plans with different durations and prices. They can also manage add-on services like 'Personal Training' or 'Yoga Classes' that can be scheduled by members.
 
-### 📸 Camera Integration
-- **Photo capture** during member registration
-- **Attendance verification** using camera photos
-- **Face verification** (optional)
+- **Class Scheduling & Management:** A powerful tool for admins to create and manage the gym's class schedule. They can schedule new classes, assign them to specific trainers, set the class capacity, and define the start and end times.
 
-### 🌙 UI/UX Features
-- **Dark/Light mode** toggle
-- **Search & filter** for members/employees
-- **Pagination** for large lists
-- **Notifications/reminders** (payment due, plan expiry)
-- **Responsive design** for all devices
+- **Financial Reporting & Payments:** Admins can view a complete, searchable history of all payments made through the system. They also have the ability to manually record offline payments (e.g., cash, check) to keep financial records accurate. The reporting module allows for the generation and export of CSV reports for both member data and payment histories.
 
-## 🛠️ Tech Stack
+### Member
+- **Personalized Dashboard:** A personalized portal for each member to track their fitness journey. It prominently displays their current membership plan, payment status, and upcoming due dates. It also includes statistics on their total gym visits and a list of any additional services they have subscribed to.
+
+- **Secure Plan Purchasing:** Members can browse all available membership plans and securely purchase or upgrade their plan online. The entire payment process is handled through Razorpay, ensuring secure and reliable transactions.
+
+- **Interactive Class Booking:** An intuitive module where members can view a schedule of all available classes. They can see details like the trainer, class time, and current capacity. Members can book a spot with a single click and also cancel their existing bookings from their dashboard, with real-time updates to the class capacity.
+
+- **Centralized Notifications:** A notification center in the header keeps members informed of important events. They receive alerts for upcoming payment dues, successful bookings, and other system-wide announcements, ensuring they never miss an update.
+
+### Employee
+- **Role-Focused Dashboard:** A streamlined dashboard that presents employees with the information most relevant to their daily tasks. This includes statistics on the number of members they are assigned to (if they are a trainer) and the total number of member check-ins for the day.
+
+- **Member & Attendance Viewing:** Employees have read-only access to the list of all gym members and can view the daily attendance log. This allows them to track who is currently in the gym and assist members as needed.
+
+### Core System Features
+- **Secure Authentication:** A robust and secure user registration and login system built with JWT (JSON Web Tokens). Passwords are never stored in plain text; they are always hashed using the industry-standard bcrypt algorithm.
+
+- **Token-Based Password Reset:** A full-featured and secure password reset system. Users who forget their password can request a reset link to be sent to their email. The link contains a unique, time-sensitive token for enhanced security, allowing them to set a new password.
+
+- **Strict Role-Based Access Control (RBAC):** The application enforces a strict separation of concerns through a powerful role-based access control system. Every API endpoint is protected by middleware that verifies the user's role (Admin, Employee, or Member), ensuring that users can only access the data and perform the actions permitted for their specific role.
+
+- **Persistent Dark/Light Theme:** A modern, user-toggleable dark and light mode is available throughout the application to enhance user comfort and accessibility. The user's preference is saved in their browser's local storage for a persistent experience across sessions.
+
+---
+
+## Tech Stack
 
 ### Frontend
-- **React 18** - Modern UI library
-- **Tailwind CSS** - Utility-first CSS framework
-- **React Router** - Client-side routing
-- **Axios** - HTTP client
-- **React Hot Toast** - Notifications
-- **Lucide React** - Icons
-- **Recharts** - Charts and analytics
+- **Framework:** React.js
+- **Routing:** React Router
+- **Styling:** Tailwind CSS
+- **HTTP Client:** Axios
+- **State Management:** React Context API
+- **Icons:** Lucide React
+- **Charts:** Recharts
+- **Notifications:** React Hot Toast
 
 ### Backend
-- **Node.js** - JavaScript runtime
-- **Express.js** - Web framework
-- **SQLite** - Lightweight database
-- **JWT** - Authentication tokens
-- **bcryptjs** - Password hashing
-- **Multer** - File upload handling
-- **Express Validator** - Input validation
+- **Framework:** Node.js with Express.js
+- **Database:** SQLite
+- **Authentication:** JSON Web Tokens (JWT) & bcrypt.js
+- **Payment Gateway:** Razorpay
+- **File Uploads:** Multer
 
-## 📦 Installation
+### Database
+- **Engine:** SQLite 3
+
+---
+
+## API Endpoints
+
+### Auth (`/api/auth`)
+| Method | Endpoint                 | Description                                      |
+|--------|--------------------------|--------------------------------------------------|
+| POST   | `/register`              | Register a new user.                             |
+| POST   | `/login`                 | Log in an existing user.                         |
+| GET    | `/profile`               | Get the current user's profile.                  |
+| PUT    | `/profile`               | Update the current user's profile.               |
+| PUT    | `/change-password`       | Change the current user's password.              |
+| POST   | `/forgot-password`       | Initiate the password reset process.             |
+| POST   | `/reset-password/:token` | Complete the password reset process.             |
+
+### Members (`/api/members`)
+| Method | Endpoint       | Description                                      |
+|--------|----------------|--------------------------------------------------|
+| GET    | `/`            | Get a paginated list of all members.             |
+| POST   | `/`            | Create a new member.                             |
+| GET    | `/:id`         | Get details for a specific member.               |
+| PUT    | `/:id`         | Update a specific member's details.              |
+| POST   | `/:id/photo`   | Upload a photo for a member.                     |
+
+### Schedule (`/api/schedule`)
+| Method | Endpoint               | Description                                      |
+|--------|------------------------|--------------------------------------------------|
+| GET    | `/`                    | Get all upcoming class schedules.                |
+| POST   | `/`                    | Create a new class schedule (Admin only).        |
+| POST   | `/book`                | Book the current member into a class.            |
+| GET    | `/my-bookings`         | Get all bookings for the current member.         |
+| DELETE | `/bookings/:booking_id`| Cancel a specific booking.                       |
+
+### Payments (`/api/payments`)
+| Method | Endpoint         | Description                                      |
+|--------|------------------|--------------------------------------------------|
+| POST   | `/create-order`  | Create a Razorpay order for a plan purchase.     |
+| POST   | `/verify-payment`| Verify a Razorpay payment and update the plan.   |
+| GET    | `/`              | Get a list of all payments (Admin).              |
+| POST   | `/`              | Manually record a payment (Admin).               |
+
+---
+
+## Getting Started
+
+To get a local copy up and running, follow these simple steps.
 
 ### Prerequisites
 - Node.js (v14 or higher)
-- npm or yarn
+- npm
 
-### Setup
+### Installation
 
 1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd ironforge-gym
+   ```sh
+   git clone https://github.com/your_username/ironforge-gym.git
    ```
-
-2. **Install dependencies**
-   ```bash
-   # Install root dependencies
+2. **Install root dependencies**
+   ```sh
    npm install
-   
-   # Install server dependencies
+   ```
+3. **Install server dependencies**
+   ```sh
    cd server
    npm install
-   
-   # Install client dependencies
+   ```
+4. **Install client dependencies**
+   ```sh
    cd ../client
    npm install
    ```
 
-3. **Environment Setup**
-   ```bash
-   # Create .env file in server directory
-   cd server
-   cp .env.example .env
-   ```
-   
-   Update the `.env` file with your configuration:
-   ```
-   PORT=5000
-   JWT_SECRET=your_jwt_secret_key
-   NODE_ENV=development
-   STRIPE_SECRET_KEY=your_stripe_secret_key
-   RAZORPAY_KEY_ID=your_razorpay_key_id
-   RAZORPAY_KEY_SECRET=your_razorpay_key_secret
-   ```
+### Database Setup
+The SQLite database will be automatically initialized when the server starts for the first time, based on the schema defined in `server/database/schema.sql`.
 
-4. **Initialize Database**
-   ```bash
-   cd server
-   node database/init.js
-   ```
+### Running the Application
 
-5. **Start the application**
-   ```bash
-   # From root directory
-   npm run dev
-   ```
+From the root directory, you can run both the client and server concurrently:
 
-   This will start both the backend server (port 5000) and frontend development server (port 3000).
-
-## 🎯 Default Credentials
-
-The system comes with pre-configured demo accounts:
-
-- **Admin**: `admin@ironforge.com` / `password123`
-- **Employee**: `employee@ironforge.com` / `password123`
-- **Member**: `member@ironforge.com` / `password123`
-
-## 📁 Project Structure
-
-```
-ironforge-gym/
-├── client/                 # React frontend
-│   ├── src/
-│   │   ├── components/     # Reusable components
-│   │   ├── contexts/       # React contexts
-│   │   ├── pages/          # Page components
-│   │   └── ...
-│   └── package.json
-├── server/                 # Node.js backend
-│   ├── controllers/        # Route controllers
-│   ├── middleware/         # Custom middleware
-│   ├── routes/            # API routes
-│   ├── database/          # Database schema and init
-│   ├── uploads/            # File uploads
-│   └── package.json
-└── package.json           # Root package.json
+```sh
+npm run dev
 ```
 
-## 🔧 API Endpoints
+This will start the React development server on `http://localhost:3000` and the Node.js backend server on `http://localhost:5000`.
 
-### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/register` - User registration
-- `GET /api/auth/profile` - Get user profile
-- `PUT /api/auth/profile` - Update profile
-- `PUT /api/auth/change-password` - Change password
+## Environment Variables
 
-### Members
-- `GET /api/members` - Get all members
-- `POST /api/members` - Create member
-- `GET /api/members/:id` - Get member by ID
-- `PUT /api/members/:id` - Update member
-- `DELETE /api/members/:id` - Delete member
-- `POST /api/members/:id/photo` - Upload member photo
+For full functionality, you will need to create a `.env` file in the `server` directory with the following variables:
 
-### Attendance
-- `POST /api/attendance/checkin` - Check in member
-- `POST /api/attendance/checkout` - Check out member
-- `GET /api/attendance/today` - Get today's attendance
-- `GET /api/attendance/range` - Get attendance by date range
-
-### Payments
-- `GET /api/payments` - Get all payments
-- `POST /api/payments` - Create payment
-- `POST /api/payments/process` - Process payment
-- `GET /api/payments/overdue` - Get overdue payments
-
-### Dashboard
-- `GET /api/dashboard/admin` - Admin dashboard data
-- `GET /api/dashboard/employee` - Employee dashboard data
-- `GET /api/dashboard/member` - Member dashboard data
-
-## 🚀 Deployment
-
-### Production Build
-```bash
-# Build frontend
-cd client
-npm run build
-
-# Start production server
-cd ../server
-npm start
 ```
+# A secret key for signing JWT tokens
+JWT_SECRET=your_jwt_secret_key
 
-### Environment Variables for Production
-Make sure to set the following environment variables:
-- `NODE_ENV=production`
-- `JWT_SECRET` - Strong secret key
-- `STRIPE_SECRET_KEY` - Your Stripe secret key
-- `RAZORPAY_KEY_ID` - Your Razorpay key ID
-- `RAZORPAY_KEY_SECRET` - Your Razorpay key secret
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-For support, email support@ironforge.com or create an issue in the repository.
-
-## 🎉 Acknowledgments
-
-- Built with modern web technologies
-- Inspired by popular gym management systems like Cult.Fit and Gold's Gym
-- Uses best practices for security and performance
+# Your Razorpay API keys
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+```

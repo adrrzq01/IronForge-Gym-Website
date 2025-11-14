@@ -17,8 +17,7 @@ const Plans = () => {
   const loadPlans = async () => {
     try {
       const { data } = await axios.get('/api/plans');
-      // assume API returns { plans: [...] } or array
-      setPlans(data.plans || data || []);
+      setPlans(data.plans || []);
     } catch (e) {
       console.error(e);
       toast.error('Failed to load plans');

@@ -3,6 +3,34 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../database/init');
 
+// Promisify db methods to use with async/await
+const dbGet = (query, params) => {
+    return new Promise((resolve, reject) => {
+        db.get(query, params, (err, row) => {
+            if (err) reject(err);
+            resolve(row);
+        });
+    });
+};
+
+const dbAll = (query, params) => {
+    return new Promise((resolve, reject) => {
+        db.all(query, params, (err, rows) => {
+            if (err) reject(err);
+            resolve(rows);
+        });
+    });
+};
+
+const dbRun = (query, params) => {
+    return new Promise(function(resolve, reject) {
+        db.run(query, params, function(err) {
+            if (err) reject(err);
+            resolve({ lastID: this.lastID, changes: this.changes });
+        });
+    });
+};
+
 // Configure multer for attendance photos
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -31,108 +59,86 @@ const upload = multer({
 });
 
 // Check in member
-const checkIn = (req, res) => {
+const checkIn = async (req, res) => {
     const { memberId } = req.body;
     const photoPath = req.file ? `/uploads/attendance/${req.file.filename}` : null;
 
-    // Check if member already checked in today
-    const today = new Date().toISOString().split('T')[0];
-    
-    db.get(
-        `SELECT * FROM attendance 
+    try {
+        // Check if member already checked in today and not checked out
+        const today = new Date().toISOString().split('T')[0];
+        const existingCheckIn = await dbGet(`SELECT * FROM attendance 
          WHERE member_id = ? AND DATE(check_in_time) = ? AND check_out_time IS NULL`,
-        [memberId, today],
-        (err, existingCheckIn) => {
-            if (err) {
-                return res.status(500).json({ message: 'Database error' });
-            }
+            [memberId, today]
+        );
 
-            if (existingCheckIn) {
-                return res.status(400).json({ message: 'Member already checked in today' });
-            }
-
-            // Create check-in record
-            db.run(
-                'INSERT INTO attendance (member_id, photo_path) VALUES (?, ?)',
-                [memberId, photoPath],
-                function(err) {
-                    if (err) {
-                        return res.status(500).json({ message: 'Error creating check-in record' });
-                    }
-
-                    res.status(201).json({
-                        message: 'Check-in successful',
-                        attendanceId: this.lastID,
-                        checkInTime: new Date().toISOString()
-                    });
-                }
-            );
+        if (existingCheckIn) {
+            return res.status(400).json({ message: 'Member already checked in today' });
         }
-    );
+
+        // Create check-in record
+        const result = await dbRun('INSERT INTO attendance (member_id, photo_path) VALUES (?, ?)', [memberId, photoPath]);
+
+        res.status(201).json({
+            message: 'Check-in successful',
+            attendanceId: result.lastID,
+            checkInTime: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error("Error in checkIn:", error);
+        res.status(500).json({ message: 'Error creating check-in record' });
+    }
 };
 
 // Check out member
-const checkOut = (req, res) => {
+const checkOut = async (req, res) => {
     const { memberId } = req.body;
 
-    // Find today's check-in record
-    const today = new Date().toISOString().split('T')[0];
-    
-    db.get(
-        `SELECT * FROM attendance 
+    try {
+        // Find today's active check-in record
+        const today = new Date().toISOString().split('T')[0];
+        const attendance = await dbGet(`SELECT * FROM attendance 
          WHERE member_id = ? AND DATE(check_in_time) = ? AND check_out_time IS NULL`,
-        [memberId, today],
-        (err, attendance) => {
-            if (err) {
-                return res.status(500).json({ message: 'Database error' });
-            }
+            [memberId, today]
+        );
 
-            if (!attendance) {
-                return res.status(400).json({ message: 'No active check-in found for today' });
-            }
-
-            // Update check-out time
-            db.run(
-                'UPDATE attendance SET check_out_time = CURRENT_TIMESTAMP WHERE id = ?',
-                [attendance.id],
-                function(err) {
-                    if (err) {
-                        return res.status(500).json({ message: 'Database error' });
-                    }
-
-                    res.json({
-                        message: 'Check-out successful',
-                        checkOutTime: new Date().toISOString()
-                    });
-                }
-            );
+        if (!attendance) {
+            return res.status(400).json({ message: 'No active check-in found for today' });
         }
-    );
+
+        // Update check-out time
+        await dbRun('UPDATE attendance SET check_out_time = CURRENT_TIMESTAMP WHERE id = ?', [attendance.id]);
+
+        res.json({
+            message: 'Check-out successful',
+            checkOutTime: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error("Error in checkOut:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
 };
 
 // Get today's attendance
-const getTodayAttendance = (req, res) => {
+const getTodayAttendance = async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
 
-    db.all(
-        `SELECT a.*, m.name as member_name, m.photo_path as member_photo
+    try {
+        const attendance = await dbAll(`SELECT a.*, m.name as member_name, m.photo_path as member_photo
          FROM attendance a
          JOIN members m ON a.member_id = m.id
          WHERE DATE(a.check_in_time) = ?
          ORDER BY a.check_in_time DESC`,
-        [today],
-        (err, attendance) => {
-            if (err) {
-                return res.status(500).json({ message: 'Database error' });
-            }
-
-            res.json({ attendance });
-        }
-    );
+            [today]
+        );
+        res.json({ attendance });
+    } catch (error) {
+        console.error("Error in getTodayAttendance:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
 };
 
 // Get attendance by date range
-const getAttendanceByDateRange = (req, res) => {
+const getAttendanceByDateRange = async (req, res) => {
     const { startDate, endDate, page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
 
@@ -140,45 +146,37 @@ const getAttendanceByDateRange = (req, res) => {
         return res.status(400).json({ message: 'Start date and end date are required' });
     }
 
-    db.all(
-        `SELECT a.*, m.name as member_name, m.photo_path as member_photo
+    try {
+        const attendance = await dbAll(`SELECT a.*, m.name as member_name, m.photo_path as member_photo
          FROM attendance a
          JOIN members m ON a.member_id = m.id
          WHERE DATE(a.check_in_time) BETWEEN ? AND ?
          ORDER BY a.check_in_time DESC
          LIMIT ? OFFSET ?`,
-        [startDate, endDate, parseInt(limit), parseInt(offset)],
-        (err, attendance) => {
-            if (err) {
-                return res.status(500).json({ message: 'Database error' });
-            }
+            [startDate, endDate, parseInt(limit), parseInt(offset)]
+        );
 
-            // Get total count
-            db.get(
-                `SELECT COUNT(*) as total FROM attendance 
+        const countResult = await dbGet(`SELECT COUNT(*) as total FROM attendance 
                  WHERE DATE(check_in_time) BETWEEN ? AND ?`,
-                [startDate, endDate],
-                (err, countResult) => {
-                    if (err) {
-                        return res.status(500).json({ message: 'Database error' });
-                    }
+            [startDate, endDate]
+        );
 
-                    res.json({
-                        attendance,
-                        pagination: {
-                            current: parseInt(page),
-                            pages: Math.ceil(countResult.total / limit),
-                            total: countResult.total
-                        }
-                    });
-                }
-            );
-        }
-    );
+        res.json({
+            attendance,
+            pagination: {
+                current: parseInt(page),
+                pages: Math.ceil(countResult.total / limit),
+                total: countResult.total
+            }
+        });
+    } catch (error) {
+        console.error("Error in getAttendanceByDateRange:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
 };
 
 // Get member's attendance summary
-const getMemberAttendanceSummary = (req, res) => {
+const getMemberAttendanceSummary = async (req, res) => {
     const { memberId } = req.params;
     const { startDate, endDate } = req.query;
 
@@ -200,19 +198,18 @@ const getMemberAttendanceSummary = (req, res) => {
         params.push(startDate, endDate);
     }
 
-    db.get(query, params, (err, summary) => {
-        if (err) {
-            return res.status(500).json({ message: 'Database error' });
-        }
-
+    try {
+        const summary = await dbGet(query, params);
         res.json({ summary });
-    });
+    } catch (error) {
+        console.error("Error in getMemberAttendanceSummary:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
 };
 
 // Get attendance statistics
-const getAttendanceStats = (req, res) => {
+const getAttendanceStats = async (req, res) => {
     const { period = 'week' } = req.query;
-    
     let dateFilter = '';
     let params = [];
 
@@ -231,8 +228,8 @@ const getAttendanceStats = (req, res) => {
             break;
     }
 
-    db.all(
-        `SELECT 
+    try {
+        const stats = await dbAll(`SELECT 
             DATE(check_in_time) as date,
             COUNT(*) as checkins,
             COUNT(CASE WHEN check_out_time IS NOT NULL THEN 1 END) as checkouts
@@ -240,15 +237,13 @@ const getAttendanceStats = (req, res) => {
          WHERE ${dateFilter}
          GROUP BY DATE(check_in_time)
          ORDER BY date DESC`,
-        params,
-        (err, stats) => {
-            if (err) {
-                return res.status(500).json({ message: 'Database error' });
-            }
-
-            res.json({ stats });
-        }
-    );
+            params
+        );
+        res.json({ stats });
+    } catch (error) {
+        console.error("Error in getAttendanceStats:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
 };
 
 module.exports = {

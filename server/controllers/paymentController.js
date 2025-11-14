@@ -1,9 +1,124 @@
 const db = require('../database/init');
 const { body, validationResult } = require('express-validator');
 const moment = require('moment');
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
+
+// Promisify db methods to use with async/await
+const dbGet = (query, params) => {
+    return new Promise((resolve, reject) => {
+        db.get(query, params, (err, row) => {
+            if (err) reject(err);
+            resolve(row);
+        });
+    });
+};
+
+const dbAll = (query, params) => {
+    return new Promise((resolve, reject) => {
+        db.all(query, params, (err, rows) => {
+            if (err) reject(err);
+            resolve(rows);
+        });
+    });
+};
+
+const dbRun = (query, params) => {
+    return new Promise(function(resolve, reject) {
+        db.run(query, params, function(err) {
+            if (err) reject(err);
+            resolve({ lastID: this.lastID, changes: this.changes });
+        });
+    });
+};
+
+// Instantiate Razorpay
+// IMPORTANT: These should be stored in environment variables
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_XXXXXXXXXXXXXX',
+    key_secret: process.env.RAZORPAY_KEY_SECRET || 'XXXXXXXXXXXXXXXXXXXXXXXX'
+});
+
+// Create a Razorpay Order
+const createRazorpayOrder = async (req, res) => {
+    const { amount, planId } = req.body;
+    const { userId } = req.user;
+
+    if (!amount || !planId) {
+        return res.status(400).json({ message: 'Amount and Plan ID are required.' });
+    }
+
+    try {
+        const options = {
+            amount: amount * 100, // amount in the smallest currency unit
+            currency: "INR",
+            receipt: `receipt_plan_${planId}_${new Date().getTime()}`,
+            notes: {
+                planId,
+                userId
+            }
+        };
+
+        const order = await razorpay.orders.create(options);
+        res.json(order);
+
+    } catch (error) {
+        console.error("Error creating Razorpay order:", error);
+        res.status(500).json({ message: 'Error creating Razorpay order' });
+    }
+};
+
+// Verify Razorpay Payment
+const verifyRazorpayPayment = async (req, res) => {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId, amount } = req.body;
+    const { userId } = req.user;
+
+    const shasum = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'XXXXXXXXXXXXXXXXXXXXXXXX');
+    shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+    const digest = shasum.digest('hex');
+
+    if (digest !== razorpay_signature) {
+        return res.status(400).json({ message: 'Invalid signature' });
+    }
+
+    // Signature is valid, now update database within a transaction
+    try {
+        const member = await dbGet('SELECT id FROM members WHERE user_id = ?', [userId]);
+        if (!member) {
+            return res.status(404).json({ message: 'Could not find member profile for this user.' });
+        }
+
+        const memberId = member.id;
+        const newDueDate = moment().add(1, 'month').format('YYYY-MM-DD');
+
+        await dbRun('BEGIN TRANSACTION');
+
+        // 1. Insert into payments table
+        await dbRun(
+            `INSERT INTO payments (member_id, amount, payment_type, transaction_id, status, description) VALUES (?, ?, ?, ?, ?, ?)`,
+            [memberId, amount, 'online', razorpay_payment_id, 'success', `Online payment for Plan ID ${planId}`]
+        );
+
+        // 2. Update member's plan and payment status
+        await dbRun(
+            `UPDATE members SET plan_id = ?, payment_status = 'paid', payment_due_date = ? WHERE id = ?`,
+            [planId, newDueDate, memberId]
+        );
+
+        await dbRun('COMMIT');
+
+        res.json({ message: 'Payment successful and plan updated.' });
+
+    } catch (error) {
+        await dbRun('ROLLBACK');
+        console.error('Error during Razorpay payment verification DB update:', error);
+        res.status(500).json({ message: 'Payment verified, but failed to update database.' });
+    }
+};
+
 
 // Get all payments
-const getAllPayments = (req, res) => {
+const getAllPayments = async (req, res) => {
     const { page = 1, limit = 10, memberId, status = 'all', startDate, endDate } = req.query;
     const offset = (page - 1) * limit;
 
@@ -33,11 +148,8 @@ const getAllPayments = (req, res) => {
     query += ` ORDER BY p.payment_date DESC LIMIT ? OFFSET ?`;
     params.push(parseInt(limit), parseInt(offset));
 
-    db.all(query, params, (err, payments) => {
-        if (err) {
-            return res.status(500).json({ message: 'Database error' });
-        }
-
+    try {
+        const payments = await dbAll(query, params);
         // Get total count
         let countQuery = 'SELECT COUNT(*) as total FROM payments WHERE 1=1';
         let countParams = [];
@@ -57,49 +169,46 @@ const getAllPayments = (req, res) => {
             countParams.push(startDate, endDate);
         }
 
-        db.get(countQuery, countParams, (err, countResult) => {
-            if (err) {
-                return res.status(500).json({ message: 'Database error' });
-            }
+        const countResult = await dbGet(countQuery, countParams);
 
-            res.json({
-                payments,
-                pagination: {
-                    current: parseInt(page),
-                    pages: Math.ceil(countResult.total / limit),
-                    total: countResult.total
-                }
-            });
+        res.json({
+            payments,
+            pagination: {
+                current: parseInt(page),
+                pages: Math.ceil(countResult.total / limit),
+                total: countResult.total
+            }
         });
-    });
+    } catch (error) {
+        console.error("Error in getAllPayments:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
 };
 
 // Get payment by ID
-const getPaymentById = (req, res) => {
+const getPaymentById = async (req, res) => {
     const { id } = req.params;
 
-    db.get(
-        `SELECT p.*, m.name as member_name, m.email as member_email
+    try {
+        const payment = await dbGet(`SELECT p.*, m.name as member_name, m.email as member_email
          FROM payments p
          JOIN members m ON p.member_id = m.id
          WHERE p.id = ?`,
-        [id],
-        (err, payment) => {
-            if (err) {
-                return res.status(500).json({ message: 'Database error' });
-            }
-
+            [id]
+        );
             if (!payment) {
                 return res.status(404).json({ message: 'Payment not found' });
             }
 
             res.json({ payment });
-        }
-    );
+    } catch (error) {
+        console.error("Error in getPaymentById:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
 };
 
 // Create new payment
-const createPayment = (req, res) => {
+const createPayment = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
@@ -110,127 +219,107 @@ const createPayment = (req, res) => {
         status = 'success', description, dueDate
     } = req.body;
 
-    db.run(
-        `INSERT INTO payments (
+    try {
+        const result = await dbRun(`INSERT INTO payments (
             member_id, amount, payment_type, payment_method, transaction_id,
             status, description, due_date
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [memberId, amount, paymentType, paymentMethod, transactionId,
-         status, description, dueDate],
-        function(err) {
-            if (err) {
-                return res.status(500).json({ message: 'Error creating payment' });
-            }
+            [memberId, amount, paymentType, paymentMethod, transactionId, status, description, dueDate]
+        );
 
-            // Update member's payment status if payment is successful
-            if (status === 'success') {
-                db.run(
-                    `UPDATE members SET 
+        // Update member's payment status if payment is successful
+        if (status === 'success') {
+            await dbRun(`UPDATE members SET 
                         payment_status = 'paid', 
                         payment_due_date = ?,
                         updated_at = CURRENT_TIMESTAMP
-                     WHERE id = ?`,
-                    [dueDate, memberId],
-                    (err) => {
-                        if (err) {
-                            console.error('Error updating member payment status:', err);
-                        }
-                    }
-                );
-            }
-
-            res.status(201).json({
-                message: 'Payment created successfully',
-                paymentId: this.lastID
-            });
+                     WHERE id = ?`, // Corrected from user_id to id
+                [dueDate, memberId]
+            );
         }
-    );
+
+        res.status(201).json({
+            message: 'Payment created successfully',
+            paymentId: result.lastID
+        });
+    } catch (error) {
+        console.error("Error in createPayment:", error);
+        res.status(500).json({ message: 'Error creating payment' });
+    }
 };
 
 // Update payment
-const updatePayment = (req, res) => {
+const updatePayment = async (req, res) => {
     const { id } = req.params;
     const { amount, paymentType, paymentMethod, transactionId, status, description } = req.body;
 
-    db.run(
-        `UPDATE payments SET 
+    try {
+        const result = await dbRun(`UPDATE payments SET 
             amount = ?, payment_type = ?, payment_method = ?, 
             transaction_id = ?, status = ?, description = ?
          WHERE id = ?`,
-        [amount, paymentType, paymentMethod, transactionId, status, description, id],
-        function(err) {
-            if (err) {
-                return res.status(500).json({ message: 'Database error' });
-            }
+            [amount, paymentType, paymentMethod, transactionId, status, description, id]
+        );
 
-            if (this.changes === 0) {
-                return res.status(404).json({ message: 'Payment not found' });
-            }
-
-            res.json({ message: 'Payment updated successfully' });
-        }
-    );
-};
-
-// Delete payment
-const deletePayment = (req, res) => {
-    const { id } = req.params;
-
-    db.run('DELETE FROM payments WHERE id = ?', [id], function(err) {
-        if (err) {
-            return res.status(500).json({ message: 'Database error' });
-        }
-
-        if (this.changes === 0) {
+        if (result.changes === 0) {
             return res.status(404).json({ message: 'Payment not found' });
         }
 
+        res.json({ message: 'Payment updated successfully' });
+    } catch (error) {
+        console.error("Error in updatePayment:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
+};
+
+// Delete payment
+const deletePayment = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const result = await dbRun('DELETE FROM payments WHERE id = ?', [id]);
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'Payment not found' });
+        }
         res.json({ message: 'Payment deleted successfully' });
-    });
+    } catch (error) {
+        console.error("Error in deletePayment:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
 };
 
 // Get member's payment history
-const getMemberPayments = (req, res) => {
+const getMemberPayments = async (req, res) => {
     const { memberId } = req.params;
     const { page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
 
-    db.all(
-        `SELECT * FROM payments 
+    try {
+        const payments = await dbAll(`SELECT * FROM payments 
          WHERE member_id = ? 
          ORDER BY payment_date DESC 
          LIMIT ? OFFSET ?`,
-        [memberId, parseInt(limit), parseInt(offset)],
-        (err, payments) => {
-            if (err) {
-                return res.status(500).json({ message: 'Database error' });
+            [memberId, parseInt(limit), parseInt(offset)]
+        );
+
+        const countResult = await dbGet('SELECT COUNT(*) as total FROM payments WHERE member_id = ?', [memberId]);
+
+        res.json({
+            payments,
+            pagination: {
+                current: parseInt(page),
+                pages: Math.ceil(countResult.total / limit),
+                total: countResult.total
             }
-
-            // Get total count
-            db.get(
-                'SELECT COUNT(*) as total FROM payments WHERE member_id = ?',
-                [memberId],
-                (err, countResult) => {
-                    if (err) {
-                        return res.status(500).json({ message: 'Database error' });
-                    }
-
-                    res.json({
-                        payments,
-                        pagination: {
-                            current: parseInt(page),
-                            pages: Math.ceil(countResult.total / limit),
-                            total: countResult.total
-                        }
-                    });
-                }
-            );
-        }
-    );
+        });
+    } catch (error) {
+        console.error("Error in getMemberPayments:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
 };
 
 // Get payment statistics
-const getPaymentStats = (req, res) => {
+const getPaymentStats = async (req, res) => {
     const { period = 'month' } = req.query;
     
     let dateFilter = '';
@@ -251,8 +340,8 @@ const getPaymentStats = (req, res) => {
             break;
     }
 
-    db.all(
-        `SELECT 
+    try {
+        const stats = await dbAll(`SELECT 
             DATE(payment_date) as date,
             COUNT(*) as payment_count,
             SUM(amount) as total_amount,
@@ -262,41 +351,37 @@ const getPaymentStats = (req, res) => {
          WHERE ${dateFilter}
          GROUP BY DATE(payment_date)
          ORDER BY date DESC`,
-        params,
-        (err, stats) => {
-            if (err) {
-                return res.status(500).json({ message: 'Database error' });
-            }
-
-            res.json({ stats });
-        }
-    );
+            params
+        );
+        res.json({ stats });
+    } catch (error) {
+        console.error("Error in getPaymentStats:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
 };
 
 // Get overdue payments
-const getOverduePayments = (req, res) => {
+const getOverduePayments = async (req, res) => {
     const today = moment().format('YYYY-MM-DD');
 
-    db.all(
-        `SELECT m.*, p.name as plan_name, p.price as plan_price
+    try {
+        const members = await dbAll(`SELECT m.*, p.name as plan_name, p.price as plan_price
          FROM members m
          LEFT JOIN plans p ON m.plan_id = p.id
          WHERE m.payment_status = 'overdue' 
          OR (m.payment_due_date < ? AND m.payment_status != 'paid')
          ORDER BY m.payment_due_date ASC`,
-        [today],
-        (err, members) => {
-            if (err) {
-                return res.status(500).json({ message: 'Database error' });
-            }
-
-            res.json({ overdueMembers: members });
-        }
-    );
+            [today]
+        );
+        res.json({ overdueMembers: members });
+    } catch (error) {
+        console.error("Error in getOverduePayments:", error);
+        res.status(500).json({ message: 'Database error' });
+    }
 };
 
 // Process payment (simulate payment gateway)
-const processPayment = (req, res) => {
+const processPayment = async (req, res) => {
     const { memberId, amount, paymentType, paymentMethod } = req.body;
 
     // Simulate payment processing
@@ -313,44 +398,36 @@ const processPayment = (req, res) => {
     };
 
     if (isSuccessful) {
-        // Create payment record
-        db.run(
-            `INSERT INTO payments (
+        try {
+            // Use a transaction for atomicity
+            await dbRun('BEGIN TRANSACTION');
+
+            const result = await dbRun(`INSERT INTO payments (
                 member_id, amount, payment_type, payment_method, transaction_id,
                 status, description
             ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [paymentData.memberId, paymentData.amount, paymentData.paymentType,
-             paymentData.paymentMethod, paymentData.transactionId, paymentData.status,
-             paymentData.description],
-            function(err) {
-                if (err) {
-                    return res.status(500).json({ message: 'Error processing payment' });
-                }
+                [paymentData.memberId, paymentData.amount, paymentData.paymentType,
+                 paymentData.paymentMethod, paymentData.transactionId, paymentData.status,
+                 paymentData.description]
+            );
 
-                // Update member payment status
-                const newDueDate = moment().add(1, 'month').format('YYYY-MM-DD');
-                db.run(
-                    `UPDATE members SET 
+            const newDueDate = moment().add(1, 'month').format('YYYY-MM-DD');
+            await dbRun(`UPDATE members SET 
                         payment_status = 'paid', 
                         payment_due_date = ?,
                         updated_at = CURRENT_TIMESTAMP
                      WHERE id = ?`,
-                    [newDueDate, memberId],
-                    (err) => {
-                        if (err) {
-                            console.error('Error updating member payment status:', err);
-                        }
-                    }
-                );
+                [newDueDate, memberId]
+            );
 
-                res.json({
-                    message: 'Payment processed successfully',
-                    paymentId: this.lastID,
-                    transactionId: paymentData.transactionId,
-                    status: 'success'
-                });
-            }
-        );
+            await dbRun('COMMIT');
+
+            res.json({ message: 'Payment processed successfully', paymentId: result.lastID, transactionId: paymentData.transactionId, status: 'success' });
+        } catch (error) {
+            await dbRun('ROLLBACK');
+            console.error("Error in processPayment:", error);
+            return res.status(500).json({ message: 'Error processing payment' });
+        }
     } else {
         res.status(400).json({
             message: 'Payment failed',
@@ -368,5 +445,7 @@ module.exports = {
     getMemberPayments,
     getPaymentStats,
     getOverduePayments,
-    processPayment
+    processPayment,
+    createRazorpayOrder,
+    verifyRazorpayPayment
 };

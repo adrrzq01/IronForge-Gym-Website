@@ -14,9 +14,20 @@ const serviceRoutes = require('./routes/services');
 const paymentRoutes = require('./routes/payments');
 const attendanceRoutes = require('./routes/attendance');
 const dashboardRoutes = require('./routes/dashboard');
+const notificationRoutes = require('./routes/notifications');
+const reportRoutes = require('./routes/reports');
+const scheduleRoutes = require('./routes/schedule.js');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Security middleware (helmet, rate limiting, logging)
+try {
+    const applySecurity = require('./middleware/security');
+    applySecurity(app);
+} catch (e) {
+    console.warn('Security middleware failed to load:', e.message);
+}
 
 // Middleware
 app.use(cors());
@@ -35,6 +46,9 @@ app.use('/api/services', serviceRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/schedule', scheduleRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
