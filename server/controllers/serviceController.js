@@ -31,15 +31,19 @@ const dbRun = (query, params) => {
 };
 
 const getAllServices = async (req, res) => {
-    const { page = 1, limit = 10, status = 'all' } = req.query;
+    const { page = 1, limit = 10, status = 'active' } = req.query;
     const offset = (page - 1) * limit;
 
     let query = 'SELECT * FROM services WHERE 1=1';
     let params = [];
 
-    if (status !== 'all') {
-        query += ` AND is_active = ?`;
-        params.push(status === 'active' ? 1 : 0);
+    if (status === 'all') {
+        // Show all services including inactive
+    } else if (status === 'inactive') {
+        query += ` AND is_active = 0`;
+    } else {
+        // Default to active only
+        query += ` AND is_active = 1`;
     }
 
     query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
@@ -51,9 +55,12 @@ const getAllServices = async (req, res) => {
         // Get total count
         let countQuery = 'SELECT COUNT(*) as total FROM services WHERE 1=1';
         let countParams = [];
-        if (status !== 'all') {
-            countQuery += ` AND is_active = ?`;
-            countParams.push(status === 'active' ? 1 : 0);
+        if (status === 'all') {
+            // Count all
+        } else if (status === 'inactive') {
+            countQuery += ` AND is_active = 0`;
+        } else {
+            countQuery += ` AND is_active = 1`;
         }
 
         const countResult = await dbGet(countQuery, countParams);

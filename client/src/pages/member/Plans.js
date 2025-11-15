@@ -16,8 +16,9 @@ const MemberPlans = () => {
         const { data } = await api.get('/plans');
         setPlans(data.plans || []);
       } catch (e) {
-        console.error(e);
-        toast.error('Failed to load plans');
+        console.error('Error loading plans:', e);
+        toast.error(e.response?.data?.message || 'Failed to load plans');
+        setPlans([]);
       } finally {
         setLoading(false);
       }
